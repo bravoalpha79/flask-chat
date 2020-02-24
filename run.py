@@ -1,19 +1,15 @@
 import os
 from datetime import datetime
-from flask import Flask, redirect, render_template, request, session
+from flask import Flask, redirect, render_template, request, session, url_for
 
 app = Flask(__name__)
 app.secret_key = "somekey456"
 messages = []
 
 
-def add_messages(username, message):
+def add_message(username, message):
     now = datetime.now().strftime("%H:%M:%S")
-    messages.append("({}) {}: {}".format(now, username, message))
-
-def get_all_messages():
-    """Get all messages and separate them using a <br>"""
-    return "<br>".join(messages)
+    messages.append({"timestamp": now, "from": username, "message": message})
 
 
 @app.route("/", methods = ["GET", "POST"])
@@ -22,19 +18,20 @@ def index():
         session["username"] = request.form["username"]
 
     if "username" in session:
-        return redirect(session["username"])
+        return redirect(url_for("user", username=session["username"]))
 
     return render_template("index.html")
 
-@app.route("/<username>")
+@app.route("/chat/<username>", methods = ["GET", "POST"])
 def user(username):
-    return "<h1>Welcome, {0}</h1>{1}".format(username, get_all_messages())
 
+    if request.method == "POST":
+        username = session["username"]
+        message = request.form["message"]
+        add_message(username, message)
+        return redirect(url_for("user", username=session["username"]))
 
-@app.route("/<username>/<message>")
-def send_message(username, message):
-    add_messages(username, message)
-    return redirect("/" + username)
+    return render_template("chat.html", username=username, chat_messages=messages)
 
 
 app.run(host=os.getenv("IP"), port=int(os.getenv("PORT")), debug=True)
